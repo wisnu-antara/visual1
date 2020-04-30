@@ -1,5 +1,6 @@
 const electron = require("electron");
 const uuid = require("uuid");
+const fs = require("fs")
 const {
     app,
     BrowserWindow,
@@ -14,6 +15,13 @@ let aboutWindow;
 
 let allAppointment = []
 
+fs.readFile("gg.json", (err, jsonappointments) => {
+    if(!err){
+        const oldAppointment = JSON.parse(jsonappointments);
+        allAppointment = oldAppointment;
+    }
+});
+
 app.on("ready", () => {
     todayWindow = new BrowserWindow({
         webPreferences: {
@@ -24,6 +32,9 @@ app.on("ready", () => {
 
     todayWindow. loadURL(`file://${__dirname}/today.html`);
     todayWindow.on("closed", () => {
+
+            const jsonAppointment = JSON.stringify(allAppointment);
+            fs.writeFileSync("gg.json", jsonAppointment);
 
             app.quit();
             todayWindow = null;
@@ -80,23 +91,36 @@ const aboutWindowCreator = () => {
     ipcMain.on("appointment:create", (event, appointment) => {
         appointment["id"] = uuid();
         appointment["done"] = 0;
+        sendTodayAppointments();
         allAppointment.push(appointment);
 
         createWindow.close();
 
     console.log(allAppointment);
 });
-    ipcMain.on("appointment:request:list", event => {
+    ipcMain.on("appointment:request:list", (event) => {
     listWindow.webContents.send('appointment:response:list', allAppointment);
 });
     ipcMain.on("appointment:request:today", event => {
+    sendTodayAppointments();
     console.log("here2");
 });
+    
     ipcMain.on("appointment:done", (event, id) => {
-    console.log("here3");
-});
+        allAppointment.forEach(appointment => {
+            appointment.done = 1
+        })
 
-
+        sendTodayAppointments()
+    })
+        const sendTodayAppointments = () => {
+        const today = new Date().toISOString().slice(0,10);
+        const filtered = allAppointment.filter((appointment) => appointment.date === today)
+    
+    
+    todayWindow.webContents.send("appointment:response:today",filtered);
+    
+        }
 
 const menuTemplate = [{
     label: "File",
